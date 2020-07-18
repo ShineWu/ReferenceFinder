@@ -19,6 +19,7 @@ public class ReferenceFinderData
         try
         {          
             ReadFromCache();
+            
             var allAssets = AssetDatabase.GetAllAssetPaths();
             int totalCount = allAssets.Length;
             for (int i = 0; i < allAssets.Length; i++)
@@ -29,17 +30,21 @@ public class ReferenceFinderData
                     EditorUtility.ClearProgressBar();
                     return;
                 }
+                
                 if (File.Exists(allAssets[i]))
                     ImportAsset(allAssets[i]);
                 if (i % 2000 == 0)
                     GC.Collect();
-            }      
+            }    
+            
             //将信息写入缓存
             EditorUtility.DisplayCancelableProgressBar("Refresh", "Write to cache", 1f);
             WriteToChache();
+            
             //生成引用数据
             EditorUtility.DisplayCancelableProgressBar("Refresh", "Generating asset reference info", 1f);
             UpdateReferenceInfo();
+            
             EditorUtility.ClearProgressBar();
         }
         catch(Exception e)
@@ -52,6 +57,11 @@ public class ReferenceFinderData
     //通过依赖信息更新引用信息
     private void UpdateReferenceInfo()
     {
+        foreach (var asset in assetDict)
+        {
+            assetDict[asset.Key].references.Clear();
+        }
+        
         foreach(var asset in assetDict)
         {
             foreach(var assetGuid in asset.Value.dependencies)
@@ -99,6 +109,7 @@ public class ReferenceFinderData
             var serializedGuid = new List<string>();
             var serializedDependencyHash = new List<Hash128>();
             var serializedDenpendencies = new List<int[]>();
+            
             //反序列化数据
             using (FileStream fs = File.OpenRead(CACHE_PATH))
             {
@@ -179,7 +190,7 @@ public class ReferenceFinderData
     public void UpdateAssetState(string guid)
     {
         AssetDescription ad;
-        if (assetDict.TryGetValue(guid,out ad) && ad.state != AssetState.NODATA)
+        if (assetDict.TryGetValue(guid, out ad) && ad.state != AssetState.NODATA)
         {            
             if (File.Exists(ad.path))
             {
@@ -200,10 +211,9 @@ public class ReferenceFinderData
                 ad.state = AssetState.MISSING;
             }
         }
-        
-        //字典中没有该数据
         else if(!assetDict.TryGetValue(guid, out ad))
         {
+            //字典中没有该数据
             string path = AssetDatabase.GUIDToAssetPath(guid);
             ad = new AssetDescription();
             ad.name = Path.GetFileNameWithoutExtension(path);
